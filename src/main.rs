@@ -186,11 +186,11 @@ impl Filesystem for FS {
     fn mknod(
         &mut self,
         _req: &Request<'_>,
-        parent: u64,
+        _parent: u64,
         name: &OsStr,
-        mode: u32,
-        umask: u32,
-        rdev: u32,
+        _mode: u32,
+        _umask: u32,
+        _rdev: u32,
         reply: ReplyEntry,
     ) {
         let (_, attr) = self.add_file(name.to_str().unwrap(), &vec![0 as u8]);
@@ -198,7 +198,7 @@ impl Filesystem for FS {
         reply.entry(&TTL, &attr, 0)
     }
 
-    fn unlink(&mut self, _req: &Request<'_>, parent: u64, name: &OsStr, reply: fuser::ReplyEmpty) {
+    fn unlink(&mut self, _req: &Request<'_>, _parent: u64, name: &OsStr, reply: fuser::ReplyEmpty) {
         if !self.lookup_table.contains_key(name.to_str().unwrap()) {
             reply.error(ENOENT);
 
@@ -226,12 +226,12 @@ impl Filesystem for FS {
         &mut self,
         _req: &Request<'_>,
         ino: u64,
-        fh: u64,
-        offset: i64,
+        _fh: u64,
+        _offset: i64,
         data: &[u8],
-        write_flags: u32,
-        flags: i32,
-        lock_owner: Option<u64>,
+        _write_flags: u32,
+        _flags: i32,
+        _lock_owner: Option<u64>,
         reply: fuser::ReplyWrite,
     ) {
         if !self.data_table.contains_key(&ino) {
@@ -251,8 +251,8 @@ impl Filesystem for FS {
         &mut self,
         _req: &Request<'_>,
         ino: u64,
-        fh: u64,
-        lock_owner: u64,
+        _fh: u64,
+        _lock_owner: u64,
         reply: fuser::ReplyEmpty,
     ) {
         if !self.data_table.contains_key(&ino) {
