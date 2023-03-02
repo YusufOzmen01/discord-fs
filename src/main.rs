@@ -144,13 +144,14 @@ impl Filesystem for FS {
         _lock: Option<u64>,
         reply: ReplyData,
     ) {
-        if !self.data_table.contains_key(&ino) {
+        let Some(data) = self.data_table.get(&ino) else {
             reply.error(ENOENT);
-
             return;
-        }
+        };
 
-        reply.data(&self.data_table.get(&ino).unwrap().as_slice()[offset as usize..])
+        let data = &data.as_slice()[offset as usize..];
+
+        reply.data(data);
     }
 
     fn readdir(
@@ -227,24 +228,41 @@ impl Filesystem for FS {
         _req: &Request<'_>,
         ino: u64,
         _fh: u64,
-        _offset: i64,
+        offset: i64,
         data: &[u8],
         _write_flags: u32,
         _flags: i32,
         _lock_owner: Option<u64>,
         reply: fuser::ReplyWrite,
     ) {
-        if !self.data_table.contains_key(&ino) {
+        let Some(path) = self.path_table.get(&ino) else {
             reply.error(ENOENT);
-
             return;
+        };
+
+        let Some(attrs) = self.lookup_table.get_mut(path) else {
+            reply.error(ENOENT);
+            return;
+        };
+
+        let Some(existing_data) = self.data_table.get_mut(&ino) else {
+            reply.error(ENOENT);
+            return;
+        };
+
+        let size = data.len();
+
+        for (i, b) in data.iter().enumerate() {
+            existing_data.insert(offset as usize + i, *b);
         }
 
-        self.data_table.insert(ino, data.to_vec());
+        if data.len() + offset as usize > attrs.size as usize {
+            attrs.size = (data.len() + offset as usize) as u64;
+        }
 
         self.update_fs_size();
 
-        reply.written(data.len() as u32);
+        reply.written(size as u32);
     }
 
     fn flush(
