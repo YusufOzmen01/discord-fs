@@ -2,7 +2,7 @@ use fuser::{
     FileAttr, FileType, Filesystem, MountOption, ReplyAttr, ReplyData, ReplyDirectory, ReplyEntry,
     Request,
 };
-use libc::{ENOENT, O_TRUNC};
+use libc::ENOENT;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::time::{Duration, UNIX_EPOCH};
@@ -30,6 +30,7 @@ const ROOT_DIR_ATTR: FileAttr = FileAttr {
 struct FS {
     lookup_table: HashMap<String, FileAttr>,
     data_table: HashMap<u64, Vec<u8>>,
+    path_table: HashMap<u64, String>,
     last_inode: u64,
 }
 
@@ -38,10 +39,12 @@ impl Default for FS {
         let mut fs = FS {
             lookup_table: HashMap::new(),
             data_table: HashMap::new(),
+            path_table: HashMap::new(),
             last_inode: 1,
         };
 
         fs.lookup_table.insert(".".to_string(), ROOT_DIR_ATTR);
+        fs.path_table.insert(0, ".".to_string());
 
         fs
     }
@@ -70,6 +73,7 @@ impl FS {
 
         self.lookup_table.insert(name.to_string(), attr);
         self.data_table.insert(new_inode, data.to_vec());
+        self.path_table.insert(new_inode, name.to_string());
 
         self.last_inode = new_inode;
 
@@ -85,7 +89,14 @@ impl FS {
             }
         }
 
-        self.lookup_table.insert(".".to_string(), FileAttr { size: size as u64, blocks:  (size as u64 / 512) + 1, ..*self.lookup_table.get(".").unwrap() });
+        self.lookup_table.insert(
+            ".".to_string(),
+            FileAttr {
+                size: size as u64,
+                blocks: (size as u64 / 512) + 1,
+                ..*self.lookup_table.get(".").unwrap()
+            },
+        );
     }
 }
 
@@ -274,6 +285,29 @@ impl Filesystem for FS {
         self.update_fs_size();
 
         reply.ok();
+    }
+
+    fn setattr(
+        &mut self,
+        _req: &Request<'_>,
+        ino: u64,
+        _mode: Option<u32>,
+        _uid: Option<u32>,
+        _gid: Option<u32>,
+        _size: Option<u64>,
+        _atime: Option<fuser::TimeOrNow>,
+        _mtime: Option<fuser::TimeOrNow>,
+        _ctime: Option<std::time::SystemTime>,
+        _fh: Option<u64>,
+        _crtime: Option<std::time::SystemTime>,
+        _chgtime: Option<std::time::SystemTime>,
+        _bkuptime: Option<std::time::SystemTime>,
+        _flags: Option<u32>,
+        reply: ReplyAttr,
+    ) {
+        let path = &self.path_table[&ino];
+        let attr = self.lookup_table[path];
+        reply.attr(&TTL, &attr);
     }
 }
 
