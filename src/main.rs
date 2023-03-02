@@ -84,8 +84,8 @@ impl FS {
         let mut size = 0;
 
         for v in self.lookup_table.values() {
-            if self.data_table.contains_key(&v.ino) {
-                size += self.data_table.get(&v.ino).unwrap().len();
+            if let Some(data) = self.data_table.get(&v.ino) {
+                size += data.len();
             }
         }
 
@@ -104,21 +104,15 @@ impl Filesystem for FS {
     fn lookup(&mut self, _req: &Request, parent: u64, name: &OsStr, reply: ReplyEntry) {
         if parent != 1 {
             reply.error(ENOENT);
-
             return;
         }
 
-        if !self.lookup_table.contains_key(name.to_str().unwrap()) {
+        let Some(attr) = self.lookup_table.get(name.to_str().unwrap()) else {
             reply.error(ENOENT);
-
             return;
-        }
+        };
 
-        reply.entry(
-            &TTL,
-            self.lookup_table.get(name.to_str().unwrap()).unwrap(),
-            0,
-        )
+        reply.entry(&TTL, attr, 0)
     }
 
     fn getattr(&mut self, _req: &Request, ino: u64, reply: ReplyAttr) {
@@ -200,13 +194,10 @@ impl Filesystem for FS {
     }
 
     fn unlink(&mut self, _req: &Request<'_>, _parent: u64, name: &OsStr, reply: fuser::ReplyEmpty) {
-        if !self.lookup_table.contains_key(name.to_str().unwrap()) {
+        let Some(_) = self.lookup_table.remove(name.to_str().unwrap()) else {
             reply.error(ENOENT);
-
             return;
-        }
-
-        self.lookup_table.remove(name.to_str().unwrap()).unwrap();
+        };
 
         reply.ok();
     }
