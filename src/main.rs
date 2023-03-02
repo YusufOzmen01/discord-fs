@@ -83,7 +83,7 @@ impl FS {
     fn update_fs_size(&mut self) {
         let mut size = 0;
 
-        for (_, v) in &self.lookup_table {
+        for v in self.lookup_table.values() {
             if self.data_table.contains_key(&v.ino) {
                 size += self.data_table.get(&v.ino).unwrap().len();
             }
@@ -116,13 +116,13 @@ impl Filesystem for FS {
 
         reply.entry(
             &TTL,
-            &self.lookup_table.get(name.to_str().unwrap()).unwrap(),
+            self.lookup_table.get(name.to_str().unwrap()).unwrap(),
             0,
         )
     }
 
     fn getattr(&mut self, _req: &Request, ino: u64, reply: ReplyAttr) {
-        for (_, v) in &self.lookup_table {
+        for v in self.lookup_table.values() {
             if v.ino == ino {
                 reply.attr(&TTL, v);
 
@@ -193,7 +193,7 @@ impl Filesystem for FS {
         _rdev: u32,
         reply: ReplyEntry,
     ) {
-        let (_, attr) = self.add_file(name.to_str().unwrap(), &vec![0 as u8]);
+        let (_, attr) = self.add_file(name.to_str().unwrap(), &[0]);
 
         reply.entry(&TTL, &attr, 0)
     }
